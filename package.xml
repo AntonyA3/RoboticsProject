@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://wwww.w3.org/2001/XMLSchema"?>
+<package format="2">
+  <name>firerobot</name>
+  <version>2.0.0</version>
+  <description>A robot that is able to traverse through fire based obstructions</description>
+  <license>TODO</license>
+  <author email="aaa018@student.bham.ac.uk">Team Roberto</author>
+  <maintainer email="aaa018@student.bham.ac.uk">Team Roberto</maintainer>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+</package>
