@@ -3,6 +3,28 @@ import time
 from geometry_msgs.msg import Quaternion, Pose, PoseWithCovarianceStamped
 import numpy as np
 
+class MapToRealConverter:
+    def __init__(self, grid_width=602, grid_height=602, scale_factor=0.05):
+        self.grid_width = grid_width
+        self.grid_height = grid_height
+        self.scale_factor = scale_factor
+
+    def OccupancyGridToReal(self, pixel_nb):
+        x_grid = pixel_nb % self.grid_width
+        y_grid = int(pixel_nb/self.grid_height)
+        x = x_grid * self.scale_factor
+        y = y_grid * self.scale_factor
+
+        return x,y
+
+    def RealToOccupancyGrid(self, x, y):
+        x_grid = int(x / self.scale_factor)
+        y_grid = int(y / self.scale_factor)
+        pixel_nb = x_grid + y_grid*self.grid_height
+
+        return pixel_nb
+
+
 def covMatrix6to3(matrix):
     row1 = [matrix[0], matrix[1], matrix[5]]
     row2 = [matrix[6], matrix[7], matrix[11]]
