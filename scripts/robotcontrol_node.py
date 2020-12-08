@@ -2,69 +2,140 @@
 import rospy
 import sys
 import time
-from sensor_msgs.msg import Temperature
-from geometry_msgs.msg import Pose
+import util
+import math
+import numpy as np
+
+from sensor_msgs.msg import (Temperature, LaserScan)
+from geometry_msgs.msg import (Pose, PoseWithCovarianceStamped)
 from nav_msgs.msg import (OccupancyGrid, Path)
-class FireDetectionNode(object):
+from std_msgs.msg import Int8MultiArray
 
-    def __init__(self):
-	#Thermometre is likely to be accurate when it gets to it's true value.
-	#The temperature is likely to take time to rise or fall to it's actual tempurature
-	
-	self.TEMPERATURE_RATE_OF_CHANGE = 0.9
-    	self.TEMPERATURE_ACCURACY_PROBABILITY = 0.9
-        self.temp = [Temperature(), Temperature(), Temperature(), Temperature()] #tempurature state # temperature at 0:front, 1:right, 2: back, 3: right ,of the robot
-	self.pose = Pose(); #pose state
-	self.map = OccupancyGrid() #map state
-	#self.actions = [Twist(), Twist(), Twist(), Twist()] the set of actions of the robot
+TEMPERATURE_ACCURACY_PROBABILITY = 0.9
+#robots states
+temperature = [0,0,0,0]
+estimated_pose = Pose()
+map = OccupancyGrid()
+target = Pose()
+actions = ["forward", "left", "right", "back", "stop"]
 
-	def updateTemperature0(self,data):
+#The transition model for all states
+"""
+At any pose of the robot, this transition model contains
+the probability of moving to a state in front, to the left,
+to the right or behind the robot, given the current state and
+a high level representation of an action.
+index 0:forward_action
+index 1: left_action
+index 2: right_action
+index 3: back_action
+index 4: no_action
+"""
+transition_model = {
+    "forward_state":[0.7, 0.1, 0.1, 0.0, 0.1],
+    "left_state":[0.1, 0.7, 0.0, 0.1, 0.1 ],
+    "right_state":[0.1, 0.0, 0.7, 0.1, 0.1 ],
+    "back_state":[0.1, 0.1, 0.1, 0.6, 0.1 ],
+    "current_state":[0.05, 0.05, 0.05, 0.05, 0.8 ],
+}
+grid_x = 10
+grid_y = 10
+#temperature callback
+def update_temperature(data):
+    for i in range(4):
+        temperature[i] = data.data[i]
 
-	  t0 = self.temp[0].temperature
-	  t1 = data.temperature
-	  self.temp[0].temperature = self.temp[0].temperature + (t0 - t1) * self.TEMPERATURE_RATE_OF_CHANGE
+def update_map(data):
+    map = data
 
-        def updateTemperature1(self,data):	
-	  t0 = self.temp[1].temperature
-	  t1 = data.temperature
-	  self.temp[1].temperature = self.temp[1].temperature + (t0 - t1) * self.TEMPERATURE_RATE_OF_CHANGE
-        def updateTemperature2(self,data): 
-	  t0 = self.temp[2].temperature
-	  t1 = data.temperature
-	  self.temp[2].temperature = self.temp[2].temperature + (t0 - t1) * self.TEMPERATURE_RATE_OF_CHANGE
-        def updateTemperature3(self,data):
-	  t0 = self.temp[3].temperature
-	  t1 = data.temperature
-	  self.temp[3].temperature = self.temp[3].temperature + (t0 - t1) * self.TEMPERATURE_RATE_OF_CHANGE
-
-	#path publisher, is likely to be in seperate node
-	self.path = Path();
-	self.pathPublisher = rospy.Publisher("path", Path, queue_size=10)
-	
-	#subscribers for each temperature that is detected from surrounding. 
-        self.tempSubscriber = [rospy.Subscriber("env_temperature0", Temperature, updateTemperature0), rospy.Subscriber("env_temperature1", Temperature, updateTemperature1), rospy.Subscriber("env_temperature2", Temperature, updateTemperature2), rospy.Subscriber("env_temperature3", Temperature, updateTemperature3)]
-	
-	
-        self.rate = 10.0;
-        while not rospy.is_shutdown():
-
-    	    #self.pathPublisher.publish(path)
-            #soon to implements actions based on the othe readings
+def update_pose(data):
+    estimated_pose.position = data.pose.pose.position
+    estimate_pose.orientation = data.pose.pose.orientation
 
 
-            rospy.loginfo("read temperature")
-            if self.rate:
-                rospy.sleep(1/self.rate)
+temperatureSubscriber = rospy.Subscriber("temperatures", Int8MultiArray, update_temperature)
+mapSubscriber = rospy.Subscriber("map", OccupancyGrid, update_map)
+poseIntialiser = rospy.Subscriber("initialpose", PoseWithCovarianceStamped, update_pose)
+
+def reward_function(pose, map, fire_map, target):
+    #four possible next states
+    #equal probability of transitioning to each state unless one is blocked
+    #"""This is the distance between the current pose and the target pose"""
+    #def heuristic(pose, target){
+
+
+    #}
+
+    #0.05 m per cell
+    cell = [pose.position.x,pose.position.y]
+    #therefore if the are any occupancies wider than the
+    heading = util.getHeading(estimated_pose.orientation)
+    headingVector = [math.cos(heading), math.sin(heading)]
+    rightVector = [math.sin(heading), -math.cos(heading)]
+    #check infront
+
+    #check if cells infront of robot are unoccupied or occupied
+
+    # TODO: Reward function based on cell occupancy
+    frontOccupied = 0
+    for i in range(-10,10, 1):
+        for j in range(10):
+            cij = np.add(cell, np.add(np.multiply(rightVector,i), np.multiply(headingVector, j)))
+            cij = cij.tolist()
+            cij[0] = int(cij[0])
+            cij[1] = int(cij[1])
+
+            if(cij[0]*map.info.width + cij[1] < len(map.data)):
+                locationData = map.data[cij[0]*map.info.width + cij[1]]
+                if(locationData == -1):
+                    frontOccupied = 0
+                else:
+                    frontOccupied = locationData
+
             else:
-                rospy.sleep(1.0)
+                frontOccupied = 0
+    # TODO: Reward function based on fire
+
+    # TODO: Reward function based on distance from target
 
 
-	
+
+
+def reward():
+    #A* algorithm
+    target = target
+    #pose + forward_forward
+    next_state_forward = Pose()
+    #
+
+def update():
+    rate = 10.0;
+
+    while not rospy.is_shutdown():
+
+
+        rospy.loginfo("read temperature")
+        pose_transition_model(estimated_pose, map)
+        if rate:
+            rospy.sleep(1/rate)
+        else:
+            rospy.sleep(1.0)
+
+
+
 if __name__ == '__main__':
     rospy.init_node("robot_control")
     rospy.loginfo("Robot control is working")
     try:
-	  node = FireDetectionNode()
+        map = rospy.wait_for_message("/map", OccupancyGrid, 20)
+        rospy.loginfo("Map received. %d X %d, %f px/m." %
+                      (map.info.width, map.info.height,
+                       map.info.resolution))
+    except rospy.exceptions.ROSException:
+        rospy.logerr("Problem getting a map. Check that you have a map_server"
+                 " running: rosrun map_server map_server <mapname> " )
+        sys.exit(1)
+    try:
+	  update()
     except rospy.ROSInterruptException:
 	  pass
-
