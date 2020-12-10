@@ -13,11 +13,11 @@ from std_msgs.msg import Int8MultiArray
 
 TEMPERATURE_ACCURACY_PROBABILITY = 0.9
 #robots states
-temperature = [0,0,0,0]
+temperatures = [0,0,0,0]
 estimated_pose = Pose()
 map = OccupancyGrid()
 target = Pose()
-fir_map = OccupancyGrid()
+#fir_map = OccupancyGrid()
 actions = ["forward", "left", "right", "back", "stop"]
 
 #The transition model for all states
@@ -61,33 +61,22 @@ mapSubscriber = rospy.Subscriber("map", OccupancyGrid, update_map)
 poseIntialiser = rospy.Subscriber("initialpose", PoseWithCovarianceStamped, update_pose)
 fireMapSubscriber = rospy.Subscriber("fire_map", OccupancyGrid, update_fire_map)
 
-def reward_function(pose, map, fire_map, target, action):
+def reward_function(pose, map, tempurature, target, elapsed):
     #four possible next states
     #equal probability of transitioning to each state unless one is blocked
     #"""This is the distance between the current pose and the target pose"""
     #def heuristic(pose, target){
 
 
-    #}
-
-    reward_result = 0
+    reward_result = {
+    "forward":1,
+    "left":0,
+    "right":0,
+    "backward":-2,
+    "stop":-2
+    }
     #0.05 m per cell
 
-    """
-    The robot should prioritize moving forward
-    """
-    if(action == "forward"):
-        reward_result  = 1
-    elif(action == "left" or action == "right"):
-        reward_result = 0
-    elif (action == "back"):
-        reward_result = -1
-    elif (action == "no_action"):
-        reward_result == -2
-    #check infront
-
-    #there
-    #check if cells infront of robot are unoccupied or occupied
 
     """
     Through SLAM, the robot will know it's estimated location and also the
@@ -103,14 +92,42 @@ def reward_function(pose, map, fire_map, target, action):
     forwardVector = [math.cos(heading), math.sin(heading)]
     rightVector = [math.sin(heading), -math.cos(heading)]
 
+    """Reward based on distance from target"""
+    #forward
+    target_cell = [int(target.position.x / map.info.resolution), int(target.position.y / map.info.resolution)]
+    forward_distance = np.sub(target_cell, elapsed * np.add(cell, headingVector))
+    forward_distance = np.sqrt(np.dot(forward_distance, forward_distance))
+
+    backwards_distance = np.sub(target_cell, elapsed * np.add(cell, -headingVector))
+    backwards_distance = np.sqrt(backwards_distance,backwards_distance)
+
+    right_distance = np.sub(target_cell, elapsed * np.add(cell, rightVector))
+    right_distance = np.sqrt(right_distance,right_distance)
+
+    left_distance = np.sub(target_cell, elapsed * np.add(cell, -rightVector))
+    left_distance = np.sqrt(left_distance,left_distance)
+
+    distances = [("forward", forward_distance),
+    ("left",left_distance),
+    ("right",right_distance),
+    ("back",backwards_distance)]
+    distances = sorted(distances, 1)
+    reward_result[distances[1][1]] += 1;
+    reward_result[distances[2][1]] -= 1;
+    reward_result[distances[3][1]] -= 1;
+
     """
     The occupancy in a certain direction has the greatest affect on the reward
     value of the action
     """
     in_front = 0
-    #occupied if occupancy probability > 50
+    to_left = 0
+    to_right = 0
+    to_back = 0
+    #occupied if occupancy probability > 40
     for i in range(-10,10,1):
         for j in range(20):
+            """forward cell count"""
             c = [int(cell[0] + forwardVector[0] * j + rightVector[0] * i)  ,
             int(cell[1] + forwardVector[1] * j + rightVector[1] * i)]
             trueCell = c[0] * map.info.width + c[1]
@@ -122,35 +139,87 @@ def reward_function(pose, map, fire_map, target, action):
             else:
                 #unknown location
                 in_front += 1
-                pass
+
+            """backward cell count"""
+            c = [int(cell[0] + -forwardVector[0] * j + rightVector[0] * i)  ,
+            int(cell[1] + forwardVector[1] * j + rightVector[1] * i)]
+            trueCell = c[0] * map.info.width + c[1]
+
+            if(trueCell >= 0  and trueCell < map.info.width * map.info.height):
+                if(map.data[trueCell] > 40):
+                    #blocked location
+                    to_back += 1
+            else:
+                #unknown location
+                to_back += 1
+
+            """left cell count"""
+            c = [int(cell[0] -rightVector[0] * j + forwardVector[0] * i)  ,
+            int(cell[1] -rightVector[1] * j + forwardVector[1] * i)]
+            trueCell = c[0] * map.info.width + c[1]
+
+            if(trueCell >= 0  and trueCell < map.info.width * map.info.height):
+                if(map.data[trueCell] > 40):
+                    #blocked location
+                    to_left += 1
+            else:
+                #unknown location
+                to_left += 1
+
+            """right cell count"""
+            c = [int(cell[0] + rightVector[0] * j + forwardVector[0] * i)  ,
+            int(cell[1] + rightVector[1] * j + forwardVector[1] * i)]
+            trueCell = c[0] * map.info.width + c[1]
+
+            if(trueCell >= 0  and trueCell < map.info.width * map.info.height):
+                if(map.data[trueCell] > 40):
+                    #blocked location
+                    to_right+= 1
+            else:
+                #unknown location
+                to_right+= 1
+
+
     if (in_front > 0 ):
-        reward_result -= in_front
+        reward_result["forward"] = -1
+        reward_result["stop"] += 1
+    else:
+        reward_result["forward"] += 1
+
+    if(to_left > 0):
+        reward_result["left"] -= 1
+        reward_result["stop"] += 1
+
+    else:
+        reward_result["left"] += 1
+
+    if(to_right > 0):
+        reward_result["right"] -= 1
+        reward_result["stop"] += 1
+
+    else:
+        reward_result["right"] += 1
+    if(to_back > 0):
+        reward_result["back"] -= 1
+        reward_result["stop"] += 1
+
+    else:
+        reward_result["back"] += 1
+
+
+    """reward based on temperature"""
+    if(temperature[0] > 50):
+        reward_result["forward"] -= 5
+    if(temperature[1] > 50):
+        reward_result["right"] -= 5
+    if(temperature[2] > 50):
+        reward_result["back"] -= 5
+    if(temperature[3] > 50):
+        reward_result["left"] -= 5
+
 
     return reward_result
             #
-    #frontOccupied = 0
-    #for i in range(-10,10, 1):
-    #    for j in range(10):
-    #        cij = np.add(cell, np.add(np.multiply(rightVector,i), np.multiply(headingVector, j)))
-    #        cij = cij.tolist()
-    #        cij[0] = int(cij[0])
-    #        cij[1] = int(cij[1])
-
-    #        if(cij[0]*map.info.width + cij[1] < len(map.data)):
-    #            locationData = map.data[cij[0]*map.info.width + cij[1]]
-    #            if(locationData == -1):
-    #                frontOccupied = 0
-    #            else:
-    #                frontOccupied = locationData
-
-    #        else:
-    #            frontOccupied = 0
-    # TODO: Reward function based on fire
-    # if temperature is greater than 50, the reward is immediately negative
-
-    # TODO: Reward function based on distance from target
-    #if the distance from target is greater, then the path, the reward is reduced
-
 
 
 def update():
@@ -158,7 +227,7 @@ def update():
 
     while not rospy.is_shutdown():
 
-        reward = reward_function(estimated_pose, map, fire_map, target, "forward")
+        reward = reward_function(estimated_pose, map, temperatures, target, 1/ rate)
         print("reward is" + str(reward))
         #rospy.loginfo("read temperature")
         if rate:
@@ -176,10 +245,10 @@ if __name__ == '__main__':
         rospy.loginfo("Map received. %d X %d, %f px/m." %
                       (map.info.width, map.info.height,
                        map.info.resolution))
-        fire_map = rospy.wait_for_message("/fire_map", OccupancyGrid, 20)
-        rospy.loginfo("Fire Map received. %d X %d, %f px/m." %
-                      (map.info.width, map.info.height,
-                       map.info.resolution))
+        #fire_map = rospy.wait_for_message("/fire_map", OccupancyGrid, 20)
+        #rospy.loginfo("Fire Map received. %d X %d, %f px/m." %
+        #              (map.info.width, map.info.height,
+        #               map.info.resolution))
 
         rospy.loginfo("Robot control is working")
     except rospy.exceptions.ROSException:
