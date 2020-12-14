@@ -7,8 +7,8 @@ import math
 import numpy as np
 
 from sensor_msgs.msg import (Temperature, LaserScan)
-from geometry_msgs.msg import (Pose, PoseWithCovarianceStamped)
-from nav_msgs.msg import (OccupancyGrid, Path)
+from geometry_msgs.msg import (Pose, PoseWithCovarianceStamped,PoseWithCovariance, Twist)
+from nav_msgs.msg import (OccupancyGrid, Path, Odometry)
 from std_msgs.msg import Int8MultiArray
 
 TEMPERATURE_ACCURACY_PROBABILITY = 0.9
@@ -17,9 +17,23 @@ temperatures = [0,0,0,0]
 estimated_pose = Pose()
 map = OccupancyGrid()
 target = Pose()
-#fir_map = OccupancyGrid()
-actions = ["forward", "left", "right", "back", "stop"]
+#forward, #turn left, #turn right, #full turn , # stop
+forward_action = Twist()
+forward_action.linear.x = 50;
 
+left_action = Twist()
+left_action.angular.z = -50;
+left_action.linear.x = 10;
+
+right_action = Twist();
+right_action.angular.z = 100;
+left_action.linear.x = 10;
+
+no_action = Twist();
+no_action.linear.x = 0;
+
+actions = [forward_action, left_action, right_action, no_action]
+last_action = no_action
 #The transition model for all states
 """
 At any pose of the robot, this transition model contains
@@ -44,7 +58,7 @@ grid_y = 10
 #temperature callback
 def update_temperature(data):
     for i in range(4):
-        temperature[i] = data.data[i]
+        temperatures[i] = data.data[i]
 
 def update_map(data):
     map = data
@@ -53,18 +67,20 @@ def update_pose(data):
     estimated_pose.position = data.pose.pose.position
     estimated_pose.orientation = data.pose.pose.orientation
 
+
 def update_fire_map(data):
     fire_map = data
 
+
 temperatureSubscriber = rospy.Subscriber("temperatures", Int8MultiArray, update_temperature)
 mapSubscriber = rospy.Subscriber("map", OccupancyGrid, update_map)
-poseIntialiser = rospy.Subscriber("initialpose", PoseWithCovarianceStamped, update_pose)
 fireMapSubscriber = rospy.Subscriber("fire_map", OccupancyGrid, update_fire_map)
+movementPubliser = rospy.Publisher("cmd_vel", Twist, queue_size=10)
 
-def reward_function(pose, map, tempurature, target, elapsed):
+"""def reward_function(pose, map, tempurature, target, elapsed):
     #four possible next states
     #equal probability of transitioning to each state unless one is blocked
-    #"""This is the distance between the current pose and the target pose"""
+    This is the distance between the current pose and the target pose
     #def heuristic(pose, target){
 
 
@@ -78,21 +94,21 @@ def reward_function(pose, map, tempurature, target, elapsed):
     #0.05 m per cell
 
 
-    """
+
     Through SLAM, the robot will know it's estimated location and also the
     occupancy,map, The robot is presumed to need a clearance of 1 meter to
     determine the location that it should move. Therefore the reward will be
     reduced if the robot detects that there are walls along the direction of the
     robot within 0.5 meters.
 
-    """
+
     cell = [int(pose.position.x / map.info.resolution) ,int(pose.position.y / map.info.resolution)]
     #therefore if the are any occupancies wider than the
     heading = util.getHeading(estimated_pose.orientation)
     forwardVector = [math.cos(heading), math.sin(heading)]
     rightVector = [math.sin(heading), -math.cos(heading)]
 
-    """Reward based on distance from target"""
+    Reward based on distance from target
     #forward
     target_cell = [int(target.position.x / map.info.resolution), int(target.position.y / map.info.resolution)]
     forward_distance = np.sub(target_cell, elapsed * np.add(cell, headingVector))
@@ -116,10 +132,10 @@ def reward_function(pose, map, tempurature, target, elapsed):
     reward_result[distances[2][1]] -= 1;
     reward_result[distances[3][1]] -= 1;
 
-    """
+
     The occupancy in a certain direction has the greatest affect on the reward
     value of the action
-    """
+
     in_front = 0
     to_left = 0
     to_right = 0
@@ -127,7 +143,6 @@ def reward_function(pose, map, tempurature, target, elapsed):
     #occupied if occupancy probability > 40
     for i in range(-10,10,1):
         for j in range(20):
-            """forward cell count"""
             c = [int(cell[0] + forwardVector[0] * j + rightVector[0] * i)  ,
             int(cell[1] + forwardVector[1] * j + rightVector[1] * i)]
             trueCell = c[0] * map.info.width + c[1]
@@ -140,7 +155,6 @@ def reward_function(pose, map, tempurature, target, elapsed):
                 #unknown location
                 in_front += 1
 
-            """backward cell count"""
             c = [int(cell[0] + -forwardVector[0] * j + rightVector[0] * i)  ,
             int(cell[1] + forwardVector[1] * j + rightVector[1] * i)]
             trueCell = c[0] * map.info.width + c[1]
@@ -153,7 +167,6 @@ def reward_function(pose, map, tempurature, target, elapsed):
                 #unknown location
                 to_back += 1
 
-            """left cell count"""
             c = [int(cell[0] -rightVector[0] * j + forwardVector[0] * i)  ,
             int(cell[1] -rightVector[1] * j + forwardVector[1] * i)]
             trueCell = c[0] * map.info.width + c[1]
@@ -166,7 +179,6 @@ def reward_function(pose, map, tempurature, target, elapsed):
                 #unknown location
                 to_left += 1
 
-            """right cell count"""
             c = [int(cell[0] + rightVector[0] * j + forwardVector[0] * i)  ,
             int(cell[1] + rightVector[1] * j + forwardVector[1] * i)]
             trueCell = c[0] * map.info.width + c[1]
@@ -207,7 +219,6 @@ def reward_function(pose, map, tempurature, target, elapsed):
         reward_result["back"] += 1
 
 
-    """reward based on temperature"""
     if(temperature[0] > 50):
         reward_result["forward"] -= 5
     if(temperature[1] > 50):
@@ -220,20 +231,86 @@ def reward_function(pose, map, tempurature, target, elapsed):
 
     return reward_result
             #
+"""
+def optimal_policy(estimated_pose,estimated_occupancy, estimated_temperature, true_target):
+    """
+    Through SLAM, the robot will know it's estimated location and also the
+    occupancy,map, The robot is presumed to need a clearance of 1 meter to
+    determine the location that it should move. Therefore the reward will be
+    reduced if the robot detects that there are walls along the direction of the
+    robot within 0.5 meters.
+
+    """
+    target = true_target
+    map = estimated_occupancy
+    pose = estimated_pose
+    cell = [int(pose.position.x / map.info.resolution) ,int(pose.position.y / map.info.resolution)]
+    target_cell = [int(target.position.x / map.info.resolution), int(target.position.y / map.info.resolution)]
+
+    #therefore if the are any occupancies wider than the
+    heading = util.getHeading(estimated_pose.orientation)
+    forwardVector = [math.cos(heading), math.sin(heading)
+    leftVector = [-math.sin(heading), math.cos(heading)]
+    rightVector = [math.sin(heading), -math.cos(heading)]
+
+    #rightVector = [math.sin(heading), -math.cos(heading)]
+    front_blocked = False
+    left_blocked  = False
+    right_blocked = False
+    for i in range(20):
+        c = np.add(cell, np.multiply(forwardVector, i))
+        cflat = int(c[0] * map.info.width + c[1])
+
+        if(cflat >= 0 and cflat < map.info.width * map.info.height ):
+            if(map.data[cflat] > 40):
+                front_blocked = True
+
+        c = np.add(cell, np.multiply(leftVector, i))
+        if(cflat >= 0 and cflat < map.info.width * map.info.height ):
+            if(map.data[cflat] > 40):
+                left_blocked = True
+
+        c = np.add(cell, np.multiply(rightVector, i))
+        if(cflat >= 0 and cflat < map.info.width * map.info.height ):
+            if(map.data[cflat] > 40):
+                right_blocked = True
+
+    if(front_blocked and left_blocked and right_blocked):
+        movementPubliser.publish(actions[1])
+    elif(front_blocked and left_blocked):
+        movementPubliser.publish(actions[2])
+    elif (front_blocked and right_blocked):
+        movementPubliser.publish(actions[1])
+
+    elif front_blocked:
+        print("don't go forward");
+        delta_target = np.subtract(target_cell, cell);
+        if(headingVector.y >= 0):
+            if(delta_target[0] > 0):
+                movementPubliser.publish(actions[2])
+            else:
+                movementPubliser.publish(actions[1])
+        elif(headingVector.y < 0):
+            if(delta_target[0] > 0):
+                movementPubliser.publish(actions[1])
+            else:
+                movementPubliser.publish(actions[2])
+
+    if not front_blocked:
+        movementPubliser.publish(actions[0])
 
 
 def update():
     rate = 10.0;
-
     while not rospy.is_shutdown():
-
-        reward = reward_function(estimated_pose, map, temperatures, target, 1/ rate)
-        print("reward is" + str(reward))
-        #rospy.loginfo("read temperature")
+        optimal_policy(estimated_pose, map, temperatures,target )
+        print("something")
         if rate:
             rospy.sleep(1/rate)
         else:
             rospy.sleep(1.0)
+    movementPubliser.publish(actions[3])
+
 
 
 
@@ -245,12 +322,8 @@ if __name__ == '__main__':
         rospy.loginfo("Map received. %d X %d, %f px/m." %
                       (map.info.width, map.info.height,
                        map.info.resolution))
-        #fire_map = rospy.wait_for_message("/fire_map", OccupancyGrid, 20)
-        #rospy.loginfo("Fire Map received. %d X %d, %f px/m." %
-        #              (map.info.width, map.info.height,
-        #               map.info.resolution))
-
         rospy.loginfo("Robot control is working")
+
     except rospy.exceptions.ROSException:
         rospy.logerr("Problem getting a map or a fireMap. Check that you have a map_server"
                  " running: rosrun map_server map_server <mapname> " )
