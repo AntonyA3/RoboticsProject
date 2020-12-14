@@ -2,11 +2,10 @@
 
  <!-- Run Map Server-->
     <node pkg="map_server" type="map_server" name="map_server" args="$(find firerobot)/src/data/meeting.yaml"/>
-
- <!-- Run FireMap Nodes -->
+ <!-- Run FireMap Nodes
     <node pkg="firerobot" type="fire_node.py" name="fire_node"/>
     <node pkg="firerobot" type="firegenerator_node.py" name="firegenerator_node"/>
-
+  -->
  <!-- Run Stage -->
     <node pkg="stage_ros" type="stageros" name="stage_ros" args="$(find firerobot)/src/data/meeting.world"/>
  <!-- Run SLAM
@@ -14,9 +13,4 @@
       <remap from="scan" to="base_scan"/>
     </node>
  -->
-<!-- Run AMCL -->
-    <node pkg="amcl" type="amcl" name="amcl">
-      <remap from="scan" to="base_scan"/>
-    </node>
-
 </launch>
