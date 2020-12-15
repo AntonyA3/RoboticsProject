@@ -6,6 +6,8 @@
 -->
 <!-- Run AMCL -->
   <node pkg="amcl" type="amcl" name="amcl">
+    <!--param name="update_min_d" type="double" value="0.0"/-->
+    <!--param name="update_min_a" type="double" value="0.0"/-->
     <remap from="scan" to="base_scan"/>
   </node>
 <!-- Run Pathfinding -->
