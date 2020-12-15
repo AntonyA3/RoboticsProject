@@ -2,7 +2,7 @@
 
 import rospy
 from nav_msgs.msg import OccupancyGrid
-from random import randint
+from random import randint, random
 import sys
 
 FireGrid = []
@@ -13,13 +13,14 @@ FireLocations = []
 FireRedundantLocations = []
 
 fireMapRowKey = 602
-spreadRate = 5.0
+spreadRate = 3.0
 fires = 1
+fire_width = 4
 fireTotal = fires
 totalPassibleArea = 0
 status_1 = 0
 
-headstart = 5000 # determines how far fire spreads before any map info is published
+headstart = 5 # determines how far fire spreads before any map info is published
 """
 NOTE: The function as defined below frequently make use of global variables; they could
 be adjusted if required to insted use only input parameters and returns making them more
@@ -66,7 +67,7 @@ def fire_grid_initialize(data):
                     FireLocations.append(n)
                     status = True
 
-        print("FireGrid initialised...")
+        rospy.loginfo("FireLocations initialised")
         status_1 = 1
         FireLocations.sort()
 
@@ -107,37 +108,36 @@ def fire_grid_update_basic():
     global spreadRate
     for i in FireLocations:
         if (FireGrid[i] < 100):
-            FireGrid[i] += (spreadRate / 5)
+            FireGrid[i] += (spreadRate)
+            if (FireGrid[i] > 100):
+                FireGrid[i] = 100
         if (i not in FireRedundantLocations):
-            status = False
+            redundant = True
 
-            row = i // fireMapRowKey
+            # Position x,y of the fire pixel
+            fire_x, fire_y = i % fireMapRowKey, i // fireMapRowKey
+            # print("x", fire_x, "y", fire_y, "Pixel", i)
+            # print("Old value", FireGrid[i])
+            # print("Fire ", i )
+            for i in range(2*fire_width):
+                for j in range(2*fire_width):
+                    x = fire_x - fire_width + i
+                    y = fire_y - fire_width + j
 
-            NeighbourPixels = [(i - 1), (i + fireMapRowKey), (i + 1), (i - fireMapRowKey)]
-            NeighbourPixelRow = []
-            NeighbourPixelRow.append(NeighbourPixels[0] // fireMapRowKey)
-            NeighbourPixelRow.append((NeighbourPixels[1] // fireMapRowKey) - 1)
-            NeighbourPixelRow.append(NeighbourPixels[2] // fireMapRowKey)
-            NeighbourPixelRow.append((NeighbourPixels[3] // fireMapRowKey) + 1)
+                    # print("y", y)
+                    pixel = x+y*fireMapRowKey
+                    # print("x", x, "y", y, "Pixel", pixel)
+                    # print("Old value", FireGrid[pixel])
+                    if (FireGrid[pixel] != -1 and pixel not in FireLocations):
+                        redundant = False
+                        spread = spreadRate/(1+2*abs(j+i-fire_width)) + random()
+                        FireGrid[pixel] += spread
+                        if FireGrid[pixel] >= 50:
+                            FireLocations.append(pixel)
 
-            for i2 in range(4):
-                pixel = NeighbourPixels[i2]
-                pixelRow = NeighbourPixelRow[i2]
-                # print (FireGrid[pixel] != 1)
-                # print (pixel not in FireLocations)
-                # print (pixelRow == row)
-                if (FireGrid[pixel] != -1
-                        and pixel not in FireLocations
-                        and pixelRow == row):
-                    status = True
-                    FireGrid[pixel] += (spreadRate / 10)
-                    if FireGrid[pixel] >= 50:
-                        FireLocations.append(pixel)
-                        FireLocations.sort()
-                        print("fire spreading!")
-            if (status == False):
+            if (redundant == True):
                 FireRedundantLocations.append(i)
-    FireRedundantLocations.sort()
+
 
 
 def fire_map_node():
@@ -147,8 +147,8 @@ def fire_map_node():
     global status_1
 
     rospy.init_node('fireMapNode', anonymous=True)
-    rate = rospy.Rate(500)
-    pub = rospy.Publisher("/fire_map", OccupancyGrid)
+    rate = rospy.Rate(1)
+    pub = rospy.Publisher("/fire_map", OccupancyGrid, queue_size=3)
 
 	## Initialize fire_map
     rospy.loginfo("Waiting for a map...")
@@ -166,8 +166,13 @@ def fire_map_node():
 
     while not rospy.is_shutdown():
         if (status_1 == 1):
+            import time
+            t0 = time.time()
+            rospy.loginfo("Spreading the fire")
             for i in range(headstart):
                 fire_grid_update_basic()
+                rospy.loginfo("Iteration " + str(i+1) + "/" + str(headstart))
+            rospy.loginfo("Initialized in "+ str(time.time()-t0) + "s")
             status_1 = 2
         if (status_1 == 2):
             fire_grid_update_basic()
