@@ -19,6 +19,7 @@ fireTotal = fires
 totalPassibleArea = 0
 status_1 = 0
 
+headstart = 5000 # determines how far fire spreads before any map info is published
 """
 NOTE: The function as defined below frequently make use of global variables; they could
 be adjusted if required to insted use only input parameters and returns making them more
@@ -165,6 +166,10 @@ def fire_map_node():
 
     while not rospy.is_shutdown():
         if (status_1 == 1):
+            for i in range(headstart):
+                fire_grid_update_basic()
+            status_1 = 2
+        if (status_1 == 2):
             fire_grid_update_basic()
             fire_map = OccupancyGrid()
             fire_map.info = occupancy_map.info
