@@ -32,11 +32,9 @@ class RobotController(object):
 
         left_action = Twist()
         left_action.angular.z = -2
-        left_action.linear.x = 0.1;
 
         right_action = Twist()
         right_action.angular.z = 2
-        right_action.linear.x = 0.1;
 
         no_action = Twist()
         no_action.linear.x = 0;
@@ -81,7 +79,6 @@ class RobotController(object):
         cell = [int(self.estimated_position[0] / self.map.info.resolution) ,int(self.estimated_position[1] / self.map.info.resolution) ]
         target_cell = [int(self.target_position[0] / self.map.info.resolution), int(self.target_position[1] / self.map.info.resolution)]
         forwardVector = [math.cos(self.estimated_angle), math.sin(self.estimated_angle)]
-
         leftVector = [-math.sin(self.estimated_angle), math.cos(self.estimated_angle)]
         rightVector = [math.sin(self.estimated_angle), -math.cos(self.estimated_angle)]
 
@@ -133,113 +130,30 @@ class RobotController(object):
                   self.movementPubliser.publish()
 
                   if(self.target_position[1] > self.estimated_position[1]):
-                      action.angular.z = 0.2
+                      action.angular.z = 0.05
                   if(self.target_position[1] < self.estimated_position[1]):
-                    action.angular.z = -0.2
+                    action.angular.z = -0.05
 
                 if(abs(delta_target[0]) <= abs(delta_target[1])):
 
                     if(self.target_position[0] > self.estimated_position[0]):
-                      action.angular.z = 0.2
+                      action.angular.z = 0.05
                     if(self.target_position[0] < self.estimated_position[0]):
-                      action.angular.z = -0.2
-                self.movementPubliser.publish(action);
+                      action.angular.z = -0.05
+                self.movementPubliser.publish(action)
 
                 print("front not blocked")
             else:
-                print("front is blocked")
-            if np.sqrt(np.dot(self.target_position, self.estimated_position) * np.dot(self.target_position, self.estimated_position)) < 20:
+                self.movementPubliser.publish(self.actions["left"])
+            if np.sqrt(np.dot(self.target_position, self.estimated_position) * np.dot(self.target_position, self.estimated_position)) < 30:
                 print("found")
                 self.navigation_mode = self.TARGET_REACHED
-
-
-        """
-        if self.navigation_mode is self.GOING_AROUND_OBSTACLE:
-            poseToTarget = np.subtract(self.target_position, self.estimated_position)
-            if front_blocked:
-                #decide which direction to turn
-                if(poseToTarget[0] > 0):
-                    self.movementPubliser.publish(self.actions["right"])
-                else:
-                    self.movementPubliser.publish(self.actions["left"])
-            else:
-                self.movementPubliser.publish(self.actions["forward"])
-                if(poseToTarget[0] > 0):
-                    if not right_blocked:
-                        self.movementPubliser.publish(self.actions["right"])
-                        self.navigation_mode = self.TO_TARGET
-                    if right_blocked and front_blocked:
-                        self.navigation_mode = self.TRYING_TO_ESCAPE
-                if(poseToTarget[0] < 0):
-                    if not left_blocked:
-                        self.movementPubliser.publish(self.actions["left"])
-                        self.navigation_mode = self.TO_TARGET
-                    if left_blocked and front_blocked:
-                        self.navigation_mode = self.TRYING_TO_ESCAPE
-        if self.navigation_mode is self.TRYING_TO_ESCAPE:
-
-        """
-
-
-
-        """
-        c = np.add(cell, np.multiply(leftVector, i))
-        if(cflat >= 0 and cflat < self.map.info.width * self.map.info.height ):
-            if(self.map.data[cflat] > 40):
-                left_blocked = True
-                print("left blocked")
-
-
-        c = np.add(cell, np.multiply(rightVector, i))
-        if(cflat >= 0 and cflat < self.map.info.width * self.map.info.height ):
-            if(self.map.data[cflat] > 40):
-                right_blocked = True
-                print("right blocked")
-        """
-
-
-        """
-        #if all sides are blocked, make a reverse attempt
-        if(front_blocked and left_blocked and right_blocked):
-            self.movementPubliser.publish(self.actions["left"])
-
-
-        #if the front and the left is blocked, then move right
-        elif(front_blocked and left_blocked):
-            self.movementPubliser.publish(self.actions["right"])
-
-        #if front and right is blocked, move right
-        elif (front_blocked and right_blocked):
-            self.movementPubliser.publish(self.actions["left"])
-
-        elif front_blocked:
-            print("don't go forward");
-            delta_target = np.subtract(target_cell, cell);
-            if(headingVector.y >= 0):
-                if(delta_target[0] > 0):
-                    self.movementPubliser.publish(self.actions["right"])
-                else:
-                    self.movementPubliser.publish(self.actions["left"])
-            elif(headingVector.y < 0):
-                if(delta_target[0] > 0):
-                    self.movementPubliser.publish(self.actions["left"])
-                else:
-                    self.movementPubliser.publish(self.actions["right"])
-        """
-
-        """
-        if(self.noPath):
-            if self.last_blocked["left"]:
-                if not left_blocked:
-                    self.movementPubliser.publish(self.actions["left"]);
-            if self.last_blocked["right"]:
-                if not right_blocked:
-                    self.movementPubliser.publish(self.actions["right"]);
+                self.movementPubliser.publish(self.actions["none"])
 
         self.last_blocked["front"] = front_blocked
         self.last_blocked["left"] = left_blocked
         self.last_blocked["right"] = right_blocked
-        """
+
 
 #The transition model for all states
 
