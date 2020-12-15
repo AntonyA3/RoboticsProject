@@ -31,10 +31,10 @@ class RobotController(object):
         forward_action.linear.x = 5;
 
         left_action = Twist()
-        left_action.angular.z = -2
+        left_action.angular.z = -0.5
 
         right_action = Twist()
-        right_action.angular.z = 2
+        right_action.angular.z = 0.5
 
         no_action = Twist()
         no_action.linear.x = 0;
@@ -82,9 +82,10 @@ class RobotController(object):
         leftVector = [-math.sin(self.estimated_angle), math.cos(self.estimated_angle)]
         rightVector = [math.sin(self.estimated_angle), -math.cos(self.estimated_angle)]
 
-        front_blocked = False
-        left_blocked  = False
-        right_blocked = False
+        #front_blocked = False
+        #left_blocked  = False
+        #right_blocked = False
+        """"
         for i in range(20):
             for j in range(-10, 10, 1):
                 c = np.add(cell,np.add(np.multiply(forwardVector, i), np.multiply(rightVector, j)))
@@ -114,14 +115,43 @@ class RobotController(object):
                 if(cflat >= 0 and cflat < self.map.info.width * self.map.info.height ):
                     if(self.map.data[cflat] > 40):
                         right_blocked = True
+        """
 
-        if self.temperatures[0] > 50:
-            front_blocked = True
-        if self.temperatures[1] > 50:
-            left_blocked = True
-        if self.temperatures[2] > 50:
-            right_blocked = True
+        #    front_blocked = True
+        #if self.temperatures[1] > 50:
+        #    left_blocked = True
+        #if self.temperatures[2] > 50:
+        #    right_blocked = True
 
+        if self.temperatures[0] > 50: #front greater than 50
+            for i in range(10,15,1):
+                for j in range(-10, 10, 1):
+                    c = np.add(cell,np.add(np.multiply(forwardVector, i), np.multiply(rightVector, j)))
+                    c[0] = int(c[0])
+                    c[1] = int(c[1])
+                    cflat = int(c[0] * self.map.info.width + c[1])
+                    map.data[cflat] = 100
+
+        if self.temperatures[1] > 50: #left greater than 50
+            for i in range(10,15,1):
+                for j in range(-10, 10, 1):
+                    c = np.add(cell,np.add(np.multiply(leftVector, i), np.multiply(forwardVector, j)))
+                    c[0] = int(c[0])
+                    c[1] = int(c[1])
+                    cflat = int(c[0] * self.map.info.width + c[1])
+                    map.data[cflat] = 100
+
+        if self.temperatures[2] > 50: #right greater than 50
+            for i in range(10,15,1):
+                for j in range(-10, 10, 1):
+                    c = np.add(cell,np.add(np.multiply(rightVector, i), np.multiply(forwardVector, j)))
+                    c[0] = int(c[0])
+                    c[1] = int(c[1])
+                    cflat = int(c[0] * self.map.info.width + c[1])
+                    map.data[cflat] = 100
+
+
+        """
         if self.navigation_mode is self.TO_TARGET:
             delta_target = np.subtract(self.target_position, self.estimated_position)
             if not front_blocked:
@@ -153,7 +183,7 @@ class RobotController(object):
         self.last_blocked["front"] = front_blocked
         self.last_blocked["left"] = left_blocked
         self.last_blocked["right"] = right_blocked
-
+        """
 
 #The transition model for all states
 
