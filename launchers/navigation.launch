@@ -1,0 +1,22 @@
+<launch>
+<!-- Run SLAM
+  <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping">
+    <remap from="scan" to="base_scan"/>
+  </node>
+-->
+<!-- Run AMCL -->
+  <node pkg="amcl" type="amcl" name="amcl">
+    <!--param name="update_min_d" type="double" value="0.0"/-->
+    <!--param name="update_min_a" type="double" value="0.0"/-->
+    <remap from="scan" to="base_scan"/>
+  </node>
+<!-- Run Pathfinding -->
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+    <rosparam file="$(find firerobot)/costmaps/cost_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find firerobot)/costmaps/cost_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find firerobot)/costmaps/local_params.yaml" command="load" />
+    <rosparam file="$(find firerobot)/costmaps/global_params.yaml" command="load" />
+    <!--rosparam file="$(firerobot)/base_local_planner_params.yaml" command="load" /-->
+  </node>
+
+</launch>
