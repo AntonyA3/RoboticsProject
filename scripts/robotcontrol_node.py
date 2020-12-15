@@ -72,7 +72,7 @@ class RobotController(object):
         self.movementPubliser = rospy.Publisher("cmd_vel", Twist, queue_size=10)
         self.amclPoseSubscriber = rospy.Subscriber("amcl_pose",PoseWithCovarianceStamped, update_pose)
         self.goalSubscriber = rospy.Subscriber("/move_base_simple/goal", PoseStamped, update_goal)
-
+        self.mapPublisher = rospy.Publisher("map", OccupancyGrid, queue_size=2)
 
 
     def optimal_policy(self):
@@ -130,7 +130,7 @@ class RobotController(object):
                     c[0] = int(c[0])
                     c[1] = int(c[1])
                     cflat = int(c[0] * self.map.info.width + c[1])
-                    map.data[cflat] = 100
+                    self.map.data[cflat] = 100
 
         if self.temperatures[1] > 50: #left greater than 50
             for i in range(10,15,1):
@@ -139,7 +139,7 @@ class RobotController(object):
                     c[0] = int(c[0])
                     c[1] = int(c[1])
                     cflat = int(c[0] * self.map.info.width + c[1])
-                    map.data[cflat] = 100
+                    self.map.data[cflat] = 100
 
         if self.temperatures[2] > 50: #right greater than 50
             for i in range(10,15,1):
@@ -148,8 +148,9 @@ class RobotController(object):
                     c[0] = int(c[0])
                     c[1] = int(c[1])
                     cflat = int(c[0] * self.map.info.width + c[1])
-                    map.data[cflat] = 100
+                    self.map.data[cflat] = 100
 
+        self.mapPublisher.publish(self.map)
 
         """
         if self.navigation_mode is self.TO_TARGET:
