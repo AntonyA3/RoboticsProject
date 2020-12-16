@@ -8,7 +8,7 @@ import numpy as np
 
 from sensor_msgs.msg import (Temperature, LaserScan)
 from geometry_msgs.msg import (Pose,PoseStamped, PoseWithCovarianceStamped,PoseWithCovariance, Quaternion, Transform, TransformStamped, Twist)
-from nav_msgs.msg import (OccupancyGrid, Path, Odometry)
+from nav_msgs.msg import (OccupancyGrid, Path, Odometry, MapMetaData)
 from std_msgs.msg import Int8MultiArray
 from tf import (TransformBroadcaster)
 from tf.msg import tfMessage
@@ -73,7 +73,7 @@ class RobotController(object):
         self.amclPoseSubscriber = rospy.Subscriber("amcl_pose",PoseWithCovarianceStamped, update_pose)
         self.goalSubscriber = rospy.Subscriber("/move_base_simple/goal", PoseStamped, update_goal)
         self.mapPublisher = rospy.Publisher("map", OccupancyGrid, queue_size=2)
-
+        self.mapMetaDataPublisher = rospy.Publisher("map_metadata", MapMetaData)
 
     def optimal_policy(self):
         cell = [int(self.estimated_position[0] / self.map.info.resolution) ,int(self.estimated_position[1] / self.map.info.resolution) ]
@@ -150,7 +150,10 @@ class RobotController(object):
                     cflat = int(c[0] * self.map.info.width + c[1])
                     self.map.data[cflat] = 100
 
+        self.map.header.stamp = ros::Time::now();
+        #map_.map.header.frame_id = "map_frame"
         self.mapPublisher.publish(self.map)
+        self.mapMetaDataPublisher.publish(self.map.info)
 
         """
         if self.navigation_mode is self.TO_TARGET:
