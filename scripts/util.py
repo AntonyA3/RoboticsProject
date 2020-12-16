@@ -3,6 +3,7 @@ import time
 from geometry_msgs.msg import Quaternion, Pose, PoseWithCovarianceStamped
 from nav_msgs.msg import OccupancyGrid
 import numpy as np
+import copy
 
 class MapToRealConverter:
     def __init__(self, grid_width=602, grid_height=602, scale_factor=0.05):
@@ -26,13 +27,15 @@ class MapToRealConverter:
         return pixel_nb
 
 def combineOccupancyGridWithData(occupancy_grid, data):
-    map3_data = np.maximum(occupancy_grid.data, data)
+    map3_data = list(occupancy_grid.data)
+    for fire in data:
+        map3_data[fire] = 100
     map3 = OccupancyGrid()
     map3.info = occupancy_grid.info
     map3.data = map3_data
     return map3
 
-def getCellPosFromRobotPos(robot_pos, sensor_dir_vector, map_resolution, sensor_range=2):
+def getCellPosFromRobotPos(robot_pos, sensor_dir_vector, map_resolution, sensor_range=1):
     """
     An util fonction to get the cell pos corresponding to the temperature sensors
 
@@ -43,7 +46,7 @@ def getCellPosFromRobotPos(robot_pos, sensor_dir_vector, map_resolution, sensor_
     cell_pos_x = int(sensor_pos_x/ map_resolution)
     cell_pos_y = int(sensor_pos_y/ map_resolution)
 
-    return cell_pos_x, cell_pos_y
+    return [cell_pos_x, cell_pos_y]
 
 def covMatrix6to3(matrix):
     row1 = [matrix[0], matrix[1], matrix[5]]

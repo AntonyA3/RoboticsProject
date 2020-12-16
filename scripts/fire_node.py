@@ -14,13 +14,13 @@ FireRedundantLocations = []
 
 fireMapRowKey = 602
 spreadRate = 3.0
-fires = 1
+fires = 3
 fire_width = 4
 fireTotal = fires
 totalPassibleArea = 0
 status_1 = 0
 
-headstart = 5 # determines how far fire spreads before any map info is published
+headstart = 4 # determines how far fire spreads before any map info is published
 """
 NOTE: The function as defined below frequently make use of global variables; they could
 be adjusted if required to insted use only input parameters and returns making them more

@@ -6,6 +6,7 @@ import util
 import math
 import numpy as np
 
+
 from sensor_msgs.msg import (Temperature, LaserScan)
 from geometry_msgs.msg import (Pose,PoseStamped, PoseWithCovarianceStamped,PoseWithCovariance, Quaternion, Transform, TransformStamped, Twist)
 from nav_msgs.msg import (OccupancyGrid, Path, Odometry)
@@ -20,7 +21,7 @@ class RobotController(object):
         self.GOING_AROUND_OBSTACLE = 1
         self.TRYING_TO_ESCAPE = 2
         self.TARGET_REACHED = 3
-        self.min_temp = 20
+        self.min_temp = 0
 
         try:
             self.map = rospy.wait_for_message("/map", OccupancyGrid, 20)
@@ -46,16 +47,17 @@ class RobotController(object):
         self.fire_width = 3
         self.temperatures = [0,0,0,0]
         self.estimated_pose = Pose()
-        self.estimated_fire_map_data = np.zeros(self.map.info.width*self.map.info.height)
+        self.estimated_fire_map_data = []
         self.target_position = [10,10]
         self.navigation_mode = self.TARGET_REACHED
 
         def update_temperature(data):
-            for i in range(4):
-                self.temperatures[i] = data.data[i]
-
+            self.temperatures = data.data
+            self.optimal_policy()
+            print(self.temperatures)
         def update_pose(data):
             self.estimated_pose = data
+
 
 
         self.temperatureSubscriber = rospy.Subscriber("temperatures", Int8MultiArray, update_temperature)
@@ -63,32 +65,33 @@ class RobotController(object):
         self.amclPoseSubscriber = rospy.Subscriber("amcl_pose",PoseWithCovarianceStamped, update_pose)
         self.mapPublisher = rospy.Publisher("mapeuh", OccupancyGrid, queue_size=2)
 
-
+        self.optimal_policy()
 
     def optimal_policy(self):
         FORWARD = [1,0]
         BACKWARD = [-1,0]
         RIGHT = [0,-1]
         LEFT = [0,1]
+        print(self.temperatures)
         if self.temperatures[0] > self.min_temp: #front greater than 50
             cell_pos = util.getCellPosFromRobotPos(self.estimated_pose.pose.pose, FORWARD, self.map.info.resolution)
-            cflat = int(cell_pos[0] + cell_pos[1] * self.map.info.width)
-            self.estimated_fire_map_data[cflat] = 100
+            cflat = cell_pos[0] + cell_pos[1] * self.map.info.width
+            self.estimated_fire_map_data.append(cflat)
 
-        if self.temperatures[1] > self.min_temp: #left greater than 50
-            cell_pos = util.getCellPosFromRobotPos(self.estimated_pose.pose.pose, LEFT, self.map.info.resolution)
-            cflat = int(cell_pos[0] + cell_pos[1] * self.map.info.width)
-            self.estimated_fire_map_data[cflat] = 100
-
-        if self.temperatures[2] > self.min_temp: #right greater than 50
+        if self.temperatures[1] > self.min_temp: #right greater than 50
             cell_pos = util.getCellPosFromRobotPos(self.estimated_pose.pose.pose, RIGHT, self.map.info.resolution)
-            cflat = int(cell_pos[0] + cell_pos[1] * self.map.info.width)
-            self.estimated_fire_map_data[cflat] = 100
+            cflat = cell_pos[0] + cell_pos[1] * self.map.info.width
+            self.estimated_fire_map_data.append(cflat)
 
-        if self.temperatures[3] > self.min_temp: #right greater than 50
+        if self.temperatures[2] > self.min_temp: #back greater than 50
             cell_pos = util.getCellPosFromRobotPos(self.estimated_pose.pose.pose, BACKWARD, self.map.info.resolution)
-            cflat = int(cell_pos[0] + cell_pos[1] * self.map.info.width)
-            self.estimated_fire_map_data[cflat] = 100
+            cflat = cell_pos[0] + cell_pos[1] * self.map.info.width
+            self.estimated_fire_map_data.append(cflat)
+
+        if self.temperatures[3] > self.min_temp: #left greater than 50
+            cell_pos = util.getCellPosFromRobotPos(self.estimated_pose.pose.pose, LEFT, self.map.info.resolution)
+            cflat = cell_pos[0] + cell_pos[1] * self.map.info.width
+            self.estimated_fire_map_data.append(cflat)
 
         estimated_map = util.combineOccupancyGridWithData(self.map, self.estimated_fire_map_data)
         self.mapPublisher.publish(estimated_map)
@@ -98,14 +101,9 @@ class RobotController(object):
 
 
 def update(node):
-    rate = 120.0;
     while not rospy.is_shutdown():
+            rospy.sleep(10)
 
-        node.optimal_policy()
-        if rate:
-            rospy.sleep(1/rate)
-        else:
-            rospy.sleep(1.0)
 
 
 

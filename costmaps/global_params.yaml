@@ -2,7 +2,7 @@ global_costmap:
   global_frame: map
   robot_base_frame: base_link
   update_frequency: 5.0
-  static_map: false # IF USING SLAM CHANGE THIS TO FALSE!
+  static_map: true # IF USING SLAM CHANGE THIS TO FALSE!
   width: 6.0
   height: 6.0
   resolution: 0.050000

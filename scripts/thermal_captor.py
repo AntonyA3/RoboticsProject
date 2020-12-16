@@ -3,12 +3,13 @@ import rospy
 from nav_msgs.msg import OccupancyGrid, Odometry
 from std_msgs.msg import Int8MultiArray
 from util import MapToRealConverter, getHeading
+import time
 import math
 class ThermalCaptor:
     firemap = None
     pose = None
 
-    def __init__(self, thermometer_range_m=2):
+    def __init__(self, thermometer_range_m=1):
         self.thermometer_range_m = thermometer_range_m
         self.converter = MapToRealConverter()
         rospy.init_node('thermal_captor', anonymous=True)
@@ -34,8 +35,10 @@ class ThermalCaptor:
             self.update_temperature()
 
     def update_temperature(self):
+        t0 = time.time()
+
         temperatures = []
-        for i in [(thermometer_range_m, 0),(0, -thermometer_range_m),(-thermometer_range_m, 0),(0, thermometer_range_m), ]:
+        for i in [(self.thermometer_range_m, 0),(0, -self.thermometer_range_m),(-self.thermometer_range_m, 0),(0, self.thermometer_range_m) ]:
             robot_angle = getHeading(self.pose.orientation)
             sensor_pos_x = self.pose.position.x + i[0]*math.cos(robot_angle) - i[1]*math.sin(robot_angle)
             sensor_pos_y = self.pose.position.y + i[1]*math.cos(robot_angle) + i[0]*math.sin(robot_angle)
@@ -44,6 +47,8 @@ class ThermalCaptor:
         array = Int8MultiArray()
         array.data = temperatures
         self.pub.publish(array)
+        print(temperatures)
+
 if __name__ == '__main__':
     captor = ThermalCaptor()
     rospy.spin()
