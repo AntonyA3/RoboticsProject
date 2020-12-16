@@ -2,8 +2,9 @@
 
  <!-- Run Map Server-->
     <node pkg="map_server" type="map_server" name="map_server" args="$(find firerobot)/src/data/meeting.yaml"/>
- <!-- Run FireMap Nodes -->
+ <!-- Run FireMap Nodes 
     <node pkg="firerobot" type="fire_node.py" name="fire_node"/>
+-->
 <!-- Run Map Estimator -->
     <node pkg="firerobot" type="thermal_captor.py" name="thermal_captor"/>
  <!-- Run Stage -->

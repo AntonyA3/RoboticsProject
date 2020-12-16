@@ -32,14 +32,14 @@ def combineOccupancyGridWithData(occupancy_grid, data):
     map3.data = map3_data
     return map3
 
-def getCellPosFromRobotPos(robot_pos, sensor_dir_vector, map_resolution):
+def getCellPosFromRobotPos(robot_pos, sensor_dir_vector, map_resolution, sensor_range=2):
     """
     An util fonction to get the cell pos corresponding to the temperature sensors
 
     """
     robot_angle = getHeading(robot_pos.orientation)
-    sensor_pos_x = robot_pos.position.x  + sensor_dir_vector[0] * math.cos(robot_angle) - sensor_dir_vector[1]*math.sin(robot_angle)
-    sensor_pos_y = robot_pos.position.y  + sensor_dir_vector[1] * math.cos(robot_angle) + sensor_dir_vector[0]*math.sin(robot_angle)
+    sensor_pos_x = robot_pos.position.x  + sensor_dir_vector[0] * sensor_range * math.cos(robot_angle) - sensor_dir_vector[1]* sensor_range *math.sin(robot_angle)
+    sensor_pos_y = robot_pos.position.y  + sensor_dir_vector[1] * sensor_range * math.cos(robot_angle) + sensor_dir_vector[0]* sensor_range *math.sin(robot_angle)
     cell_pos_x = int(sensor_pos_x/ map_resolution)
     cell_pos_y = int(sensor_pos_y/ map_resolution)
 

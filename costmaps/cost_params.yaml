@@ -4,7 +4,7 @@ raytrace_range: 3.0
 
 # Robot properties
 footprint: [[.25, .25], [.25, .25], [.25, .25], [.25, .25]]
-infaltion_radius: 0.2
+infaltion_radius: 0.15
 
 # Sensors
 

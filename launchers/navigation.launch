@@ -6,8 +6,8 @@
 -->
 <!-- Run AMCL -->
   <node pkg="amcl" type="amcl" name="amcl">
-    <!--param name="update_min_d" type="double" value="0.0"/-->
-    <!--param name="update_min_a" type="double" value="0.0"/-->
+    <param name="update_min_d" type="double" value="0.1"/>
+    <param name="update_min_a" type="double" value="0.1"/>
     <remap from="scan" to="base_scan"/>
   </node>
 <!-- Run Pathfinding -->
@@ -16,6 +16,7 @@
     <rosparam file="$(find firerobot)/costmaps/cost_params.yaml" command="load" ns="local_costmap" />
     <rosparam file="$(find firerobot)/costmaps/local_params.yaml" command="load" />
     <rosparam file="$(find firerobot)/costmaps/global_params.yaml" command="load" />
+    <remap from="map" to="mapeuh"/>
     <!--rosparam file="$(firerobot)/base_local_planner_params.yaml" command="load" /-->
   </node>
 

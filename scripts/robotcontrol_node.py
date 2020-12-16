@@ -20,6 +20,7 @@ class RobotController(object):
         self.GOING_AROUND_OBSTACLE = 1
         self.TRYING_TO_ESCAPE = 2
         self.TARGET_REACHED = 3
+        self.min_temp = 20
 
         try:
             self.map = rospy.wait_for_message("/map", OccupancyGrid, 20)
@@ -66,35 +67,29 @@ class RobotController(object):
 
     def optimal_policy(self):
         FORWARD = [1,0]
-        if self.temperatures[0] > 50: #front greater than 50
-            print("Chaud")
-            print(self.estimated_pose)
+        BACKWARD = [-1,0]
+        RIGHT = [0,-1]
+        LEFT = [0,1]
+        if self.temperatures[0] > self.min_temp: #front greater than 50
             cell_pos = util.getCellPosFromRobotPos(self.estimated_pose.pose.pose, FORWARD, self.map.info.resolution)
-            print(cell_pos)
-            for i in range(2*self.fire_width):
-                for j in range(2*self.fire_width):
-                    x = cell_pos[0] + i - self.fire_width
-                    y = cell_pos[1] + j - self.fire_width
-                    cflat = int(x + y * self.map.info.width)
-                    self.estimated_fire_map_data[cflat] = 100
+            cflat = int(cell_pos[0] + cell_pos[1] * self.map.info.width)
+            self.estimated_fire_map_data[cflat] = 100
 
-        # if self.temperatures[1] > 50: #left greater than 50
-        #     for i in range(10,15,1):
-        #         for j in range(-10, 10, 1):
-        #             c = np.add(cell,np.add(np.multiply(leftVector, i), np.multiply(forwardVector, j)))
-        #             c[0] = int(c[0])
-        #             c[1] = int(c[1])
-        #             cflat = int(c[0] * self.map.info.width + c[1])
-        #             self.estimated_fire_map_data[cflat] = 100
-        #
-        # if self.temperatures[2] > 50: #right greater than 50
-        #     for i in range(10,15,1):
-        #         for j in range(-10, 10, 1):
-        #             c = np.add(cell,np.add(np.multiply(rightVector, i), np.multiply(forwardVector, j)))
-        #             c[0] = int(c[0])
-        #             c[1] = int(c[1])
-        #             cflat = int(c[0] * self.map.info.width + c[1])
-        #             self.estimated_fire_map_data[cflat] = 100
+        if self.temperatures[1] > self.min_temp: #left greater than 50
+            cell_pos = util.getCellPosFromRobotPos(self.estimated_pose.pose.pose, LEFT, self.map.info.resolution)
+            cflat = int(cell_pos[0] + cell_pos[1] * self.map.info.width)
+            self.estimated_fire_map_data[cflat] = 100
+
+        if self.temperatures[2] > self.min_temp: #right greater than 50
+            cell_pos = util.getCellPosFromRobotPos(self.estimated_pose.pose.pose, RIGHT, self.map.info.resolution)
+            cflat = int(cell_pos[0] + cell_pos[1] * self.map.info.width)
+            self.estimated_fire_map_data[cflat] = 100
+
+        if self.temperatures[3] > self.min_temp: #right greater than 50
+            cell_pos = util.getCellPosFromRobotPos(self.estimated_pose.pose.pose, BACKWARD, self.map.info.resolution)
+            cflat = int(cell_pos[0] + cell_pos[1] * self.map.info.width)
+            self.estimated_fire_map_data[cflat] = 100
+
         estimated_map = util.combineOccupancyGridWithData(self.map, self.estimated_fire_map_data)
         self.mapPublisher.publish(estimated_map)
 
@@ -103,7 +98,7 @@ class RobotController(object):
 
 
 def update(node):
-    rate = 10.0;
+    rate = 120.0;
     while not rospy.is_shutdown():
 
         node.optimal_policy()
